@@ -1,0 +1,1793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
+<script>if(location.protocol==='http:' && location.hostname!=='localhost'){location.replace('https://'+location.host+location.pathname+location.search+location.hash);}</script>
+<title>Give 'n Take — Interactive Demo</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0F1724; overflow-x: hidden; }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, Fragment } = React;
+
+
+// ─── Brand Colors ───
+const BRAND = {
+  navy: "#1B2E4A",
+  blue: "#2B6CB0",
+  cyan: "#00A3E0",
+  burgundy: "#8B1A2B",
+  burgundyLight: "#A92240",
+  teal: "#0D9488",
+  dark: "#0F1724",
+  darkCard: "#1A2332",
+  white: "#F8FAFC",
+  gray: "#94A3B8",
+  grayLight: "#CBD5E1",
+  grayDark: "#475569",
+  greenConfirm: "#22C55E",
+};
+
+// ─── Demo Categories ───
+const DEMO_CATEGORIES = [
+  { id: "group", label: "Group Texts", icon: "👥", color: BRAND.blue },
+  { id: "dm", label: "1-on-1 with GnT", icon: "💬", color: BRAND.teal },
+  { id: "coordinator", label: "Hand-off", icon: "👥", color: BRAND.burgundyLight },
+];
+
+// ─── Demo Definitions ───
+const DEMOS = [
+  // ── GROUP DEMOS (6) ──
+  {
+    id: "schedule", category: "group",
+    label: "Schedule Your Crew", shortLabel: "Auto-Schedule", icon: "📅",
+    subtitle: "Four friends. One text. Done.",
+    groupName: "Thursday Crew", members: ["dave", "caleb", "ben", "dylan"],
+    isDM: false,
+    messages: [
+      { sender: "system", text: "GnT added to group", signals: [] },
+      { sender: "dave", text: "Let's play this week — who's in?", time: "2:10 PM", delay: 600, signals: [
+        { icon: "📅", text: "Dave initiates scheduling" },
+      ]},
+      { sender: "gnt", text: "Hey everyone! Based on your recent play, Tuesday 6pm and Thursday 7pm both have open courts at Rye. What works?", time: "2:10 PM", delay: 1800, signals: [
+        { icon: "📍", text: "2 open time slots identified from history" },
+      ]},
+      { sender: "caleb", text: "Thursday works for me.", time: "2:12 PM", delay: 2800, signals: [
+        { icon: "✅", text: "Caleb prefers Thursday evenings" },
+      ]},
+      { sender: "ben", text: "Thursday 👍", time: "2:13 PM", delay: 3500, signals: [
+        { icon: "✅", text: "Ben confirms Thursday" },
+      ]},
+      { sender: "dylan", text: "Thursday let's go", time: "2:14 PM", delay: 4200, signals: [
+        { icon: "✅", text: "Dylan: Thursday preference +1" },
+      ]},
+      { sender: "dave", text: "Thursday!", time: "2:14 PM", delay: 4700, signals: [
+        { icon: "✅", text: "4/4 aligned on Thursday" },
+      ]},
+      { sender: "gnt", text: "Booked! 🏓\n\nThursday 7pm · Court 3 · Rye\nDave, Caleb, Ben, Dylan", time: "2:14 PM", delay: 5600, signals: [
+        { icon: "📍", text: "Group default: Thu 7pm, Court 3" },
+        { icon: "📊", text: "Avg response time: 1.5 min" },
+      ]},
+    ],
+  },
+  {
+    id: "nudge", category: "group",
+    label: "It's Been a While", shortLabel: "Nudge", icon: "👋",
+    subtitle: "GnT knows when you're overdue.",
+    groupName: "Thursday Crew", members: ["dave", "caleb", "ben", "dylan"],
+    isDM: false,
+    messages: [
+      { sender: "system", text: "Tuesday, 10:02 AM", signals: [] },
+      { sender: "gnt", text: "Hey Dave, Caleb, Ben, Dylan — it's been 9 days since your last foursome. Want me to find a time this week?", time: "10:02 AM", delay: 1000, signals: [
+        { icon: "📊", text: "Group overdue: 9 days since last play" },
+      ]},
+      { sender: "dave", text: "Yeah let's do it.", time: "10:04 AM", delay: 2400, signals: [
+        { icon: "✅", text: "Dave responds — 2 min" },
+      ]},
+      { sender: "caleb", text: "👍", time: "10:05 AM", delay: 3200, signals: [
+        { icon: "✅", text: "Caleb responds — 3 min" },
+      ]},
+      { sender: "ben", text: "I'm in", time: "10:07 AM", delay: 3800, signals: [
+        { icon: "✅", text: "Ben responds — 5 min" },
+      ]},
+      { sender: "dylan", text: "Let's go!", time: "10:08 AM", delay: 4400, signals: [
+        { icon: "✅", text: "Dylan responds — 6 min" },
+      ]},
+      { sender: "gnt", text: "Thursday 7pm is open — your usual slot. Court 3 at Rye. Want me to lock it in?", time: "10:08 AM", delay: 5400, signals: [
+        { icon: "📍", text: "Pattern: group prefers Thu 7pm" },
+      ]},
+      { sender: "dave", text: "Lock it in!", time: "10:09 AM", delay: 6200, signals: [] },
+      { sender: "caleb", text: "I'm in", time: "10:09 AM", delay: 6700, signals: [] },
+      { sender: "ben", text: "Yep 👍", time: "10:10 AM", delay: 7100, signals: [] },
+      { sender: "dylan", text: "Do it", time: "10:10 AM", delay: 7500, signals: [
+        { icon: "✅", text: "4/4 confirmed" },
+      ]},
+      { sender: "gnt", text: "Booked ✅\n\nThursday 7pm · Court 3 · Rye\nDave, Caleb, Ben, Dylan", time: "10:10 AM", delay: 8400, signals: [
+        { icon: "📊", text: "Preferred cadence: weekly" },
+        { icon: "📅", text: "Nudge → booking: 8 min total" },
+      ]},
+    ],
+  },
+  {
+    id: "cancelref", category: "group",
+    label: "Cancel → Referral", shortLabel: "Cancel-Referral", icon: "🔄",
+    subtitle: "Dylan bails. The crew finds a replacement.",
+    groupName: "Thursday Crew", members: ["dave", "caleb", "ben", "dylan"],
+    isDM: false,
+    messages: [
+      { sender: "system", text: "Wednesday, 4:18 PM", signals: [] },
+      { sender: "dylan", text: "Hey guys I have to bail on tomorrow, sorry. Kid's game 😬", time: "4:18 PM", delay: 800, signals: [
+        { icon: "❌", text: "Dylan cancels (reason: family)" },
+        { icon: "📊", text: "Dylan: 24hr advance notice" },
+      ]},
+      { sender: "gnt", text: "No worries Dylan. Dave, Caleb, Ben — want me to find a fourth, or does anyone have someone in mind?", time: "4:18 PM", delay: 2000, signals: [
+        { icon: "🔍", text: "GnT offers referral or auto-fill" },
+      ]},
+      { sender: "caleb", text: "I don't have anyone, but yeah find someone", time: "4:19 PM", delay: 3200, signals: [
+        { icon: "✅", text: "Caleb: no referral, authorizes search" },
+      ]},
+      { sender: "ben", text: "Actually — try Mike Smith. He's been wanting to play with us.", time: "4:19 PM", delay: 4200, signals: [
+        { icon: "🔗", text: "Ben refers Mike (trusted intro)" },
+      ]},
+      { sender: "gnt", text: "On it. Texting Mike now — he's played with Caleb before, similar level, and he's free tomorrow.", time: "4:19 PM", delay: 5200, signals: [
+        { icon: "🤝", text: "Mike ↔ Caleb: prior history" },
+        { icon: "📍", text: "Mike: available Thu evenings" },
+      ]},
+      { sender: "gnt", text: "Mike's in ✅\n\nThursday 7pm · Court 3 · Updated.\nDave, Caleb, Ben, Mike.", time: "4:20 PM", delay: 6800, signals: [
+        { icon: "✅", text: "Mike accepts — response: 45 sec" },
+        { icon: "🔗", text: "Mike → Thursday Crew: new edge" },
+        { icon: "🔗", text: "Ben → Mike: referral trust transferred" },
+      ]},
+      { sender: "ben", text: "🔥", time: "4:20 PM", delay: 7400, signals: [
+        { icon: "⭐", text: "Ben: positive reaction to Mike" },
+      ]},
+    ],
+  },
+  {
+    id: "fourth", category: "group",
+    label: "Find a Fourth", shortLabel: "Find 4th", icon: "🔍",
+    subtitle: "The graph suggests someone new.",
+    groupName: "Tuesday Crew", members: ["ben", "emma", "caleb"],
+    isDM: false,
+    messages: [
+      { sender: "system", text: "New group: Ben, Emma, Caleb, GnT", signals: [] },
+      { sender: "ben", text: "GnT, we need a fourth for Tuesday. Anyone come to mind?", time: "3:30 PM", delay: 800, signals: [
+        { icon: "🔍", text: "Ben requests a fourth" },
+      ]},
+      { sender: "gnt", text: "Based on play style and availability, I'd suggest Sarah or Dylan.\n\nSarah: plays Tuesday evenings regularly, similar intensity, played with Emma twice — both rated it highly.\n\nDylan: strong all-around, free this Tuesday, hasn't played with this group yet.", time: "3:30 PM", delay: 2200, signals: [
+        { icon: "🧠", text: "2 compatible matches found" },
+        { icon: "⭐", text: "Sarah ↔ Emma: high mutual rating" },
+        { icon: "📍", text: "Sarah: regular Tue availability" },
+      ]},
+      { sender: "emma", text: "Sarah! She's great", time: "3:32 PM", delay: 3400, signals: [
+        { icon: "🤝", text: "Emma vouches for Sarah" },
+      ]},
+      { sender: "caleb", text: "Yeah Sarah for sure", time: "3:32 PM", delay: 4000, signals: [
+        { icon: "🤝", text: "Caleb confirms Sarah — 2/2" },
+      ]},
+      { sender: "gnt", text: "Texting Sarah now...", time: "3:33 PM", delay: 4800, signals: [
+        { icon: "🔗", text: "Sarah → Ben, Caleb: new connections" },
+      ]},
+      { sender: "gnt", text: "Sarah's in ✅\n\nTuesday 6pm · Court 5 · Rye.\nBen, Emma, Caleb, Sarah.\n\nThis is Sarah's first time playing with Ben and Caleb — I'll check in after to see how it went.", time: "3:34 PM", delay: 6000, signals: [
+        { icon: "✅", text: "Sarah accepts — new group formed" },
+        { icon: "🔗", text: "Cross-group bridge created" },
+      ]},
+      { sender: "ben", text: "🙌", time: "3:34 PM", delay: 6600, signals: [
+        { icon: "⭐", text: "Ben: positive anticipation" },
+      ]},
+    ],
+  },
+  {
+    id: "academy", category: "group",
+    label: "Level Up Together", shortLabel: "Friends Class", icon: "📈",
+    subtitle: "From play to improvement — as a group.",
+    groupName: "Thursday Crew", members: ["dave", "caleb", "ben", "dylan"],
+    isDM: false,
+    messages: [
+      { sender: "system", text: "Friday, 11:15 AM — after Thursday session", signals: [] },
+      { sender: "gnt", text: "Great session yesterday. Quick question for the group — what's one core skill you all want to improve?", time: "11:15 AM", delay: 1000, signals: [
+        { icon: "📈", text: "Skill assessment initiated" },
+      ]},
+      { sender: "dave", text: "My block at the kitchen is terrible. I keep popping it up.", time: "11:17 AM", delay: 2200, signals: [
+        { icon: "📈", text: "Dave: skill gap — kitchen blocking" },
+      ]},
+      { sender: "caleb", text: "Same honestly. I get burned every time someone speeds up.", time: "11:18 AM", delay: 3200, signals: [
+        { icon: "📈", text: "Caleb: skill gap — pace absorption" },
+      ]},
+      { sender: "ben", text: "Yeah my kitchen volleys are weak. I can't get the ball back down after a fast exchange.", time: "11:19 AM", delay: 4200, signals: [
+        { icon: "📈", text: "Ben: skill gap — kitchen volleys" },
+      ]},
+      { sender: "dylan", text: "Baby block for sure. I've got a tournament next weekend and I know there's gonna be bangers teeing off on me at the kitchen. I need this before then.", time: "11:20 AM", delay: 5000, signals: [
+        { icon: "📈", text: "4/4 converge: Baby Block" },
+        { icon: "📅", text: "Dylan: tournament next week — urgency signal" },
+      ]},
+      { sender: "gnt", text: "Sounds like Baby Block is the move.\n\nPro Dave specializes in exactly this — kitchen volleys, pace absorption, soft touch. He has a Pro+4 drilling slot open next Wednesday 6pm.\n\nWant me to book it?", time: "11:20 AM", delay: 6200, signals: [
+        { icon: "🧠", text: "Group skill gap: Baby Block" },
+        { icon: "👨‍🏫", text: "Pro Dave matched: kitchen specialist" },
+      ]},
+      { sender: "dave", text: "Yes 🙌", time: "11:21 AM", delay: 7200, signals: [] },
+      { sender: "caleb", text: "Let's go", time: "11:21 AM", delay: 7700, signals: [] },
+      { sender: "ben", text: "In", time: "11:22 AM", delay: 8200, signals: [] },
+      { sender: "dylan", text: "🔥", time: "11:22 AM", delay: 8600, signals: [
+        { icon: "✅", text: "4/4 confirmed — willing to invest" },
+      ]},
+      { sender: "gnt", text: "Booked ✅\n\nBaby Block Drilling with Pro Dave\nWednesday 6pm · Court 1 · Rye\nDave, Caleb, Ben, Dylan\n\nI'll check in after to see how it went and track your progress.", time: "11:22 AM", delay: 9600, signals: [
+        { icon: "📅", text: "Pro+4 session booked" },
+        { icon: "📊", text: "Group development path: tracked" },
+      ]},
+    ],
+  },
+
+  // ── 1-ON-1 DM DEMOS (3) ──
+  {
+    id: "feedback", category: "dm",
+    label: "Post-Match Check-In", shortLabel: "Feedback", icon: "⭐",
+    subtitle: "GnT learns what made the session great.",
+    groupName: "GnT → Dave", members: ["dave"],
+    isDM: true,
+    messages: [
+      { sender: "system", text: "Thursday, 9:12 PM — after tonight's session", signals: [] },
+      { sender: "gnt", text: "Hey Dave — how was tonight's session with Caleb, Ben, and Mike?", time: "9:12 PM", delay: 1000, signals: [
+        { icon: "📊", text: "Post-match feedback requested" },
+      ]},
+      { sender: "dave", text: "Great actually. Mike was a solid add.", time: "9:14 PM", delay: 2200, signals: [
+        { icon: "⭐", text: "Dave rates session: positive" },
+        { icon: "🤝", text: "Dave → Mike: positive signal" },
+      ]},
+      { sender: "gnt", text: "Glad to hear it. Quick question — would you play with Mike again?\n\n⭐⭐⭐⭐⭐", time: "9:14 PM", delay: 3200, signals: [
+        { icon: "🔍", text: "Trust rating requested (private)" },
+      ]},
+      { sender: "dave", text: "Definitely. 5 stars. He's reliable and fun to play with.", time: "9:15 PM", delay: 4200, signals: [
+        { icon: "⭐", text: "Dave → Mike: 5/5 trust rating" },
+        { icon: "🤝", text: "Dave → Mike: 'reliable' + 'fun'" },
+      ]},
+      { sender: "gnt", text: "Good to know. How was the level of competition? Too easy, just right, or too intense?", time: "9:15 PM", delay: 5200, signals: [] },
+      { sender: "dave", text: "Just right. Maybe slightly on the easier side but we all had long rallies.", time: "9:16 PM", delay: 6200, signals: [
+        { icon: "📊", text: "Session intensity: 'just right / slightly easy'" },
+        { icon: "🧠", text: "Rally quality signal: high" },
+      ]},
+      { sender: "gnt", text: "Got it. I'll keep Mike in mind for future Thursday sessions. This kind of feedback is what helps me find you better matches over time. 🏓", time: "9:16 PM", delay: 7400, signals: [
+        { icon: "🔗", text: "Mike → Thursday Crew: compatibility confirmed" },
+        { icon: "📊", text: "Feedback loop completed" },
+      ]},
+    ],
+  },
+  {
+    id: "notafit", category: "dm",
+    label: "Player Dynamics", shortLabel: "Not a fit", icon: "🤔",
+    subtitle: "Navigating tricky player situations privately.",
+    groupName: "GnT → Ben", members: ["ben"],
+    isDM: true,
+    messages: [
+      { sender: "system", text: "Monday, 3:45 PM", signals: [] },
+      { sender: "ben", text: "Hey GnT, quick question. There's a guy named Rick who keeps asking to join our Tuesday group. He's fine but he's way more competitive than us and kind of kills the vibe.", time: "3:45 PM", delay: 1000, signals: [
+        { icon: "🤔", text: "Ben: social friction flagged" },
+        { icon: "🔗", text: "Ben → Rick: low compatibility signal" },
+      ]},
+      { sender: "gnt", text: "Totally get it. You want good games, not just any games. A few options:\n\n1. I can suggest Rick for groups that match his intensity — he'd probably have more fun too.\n2. I can stop including him in suggestions for your Tuesday crew.\n3. I can put him in the mix less often and see if he finds his own groove.\n\nWhat feels right?", time: "3:46 PM", delay: 2800, signals: [
+        { icon: "🧠", text: "Intensity mismatch detected" },
+        { icon: "⭐", text: "Vibe compatibility: low (Ben → Rick)" },
+      ]},
+      { sender: "ben", text: "Option 1 for sure. He's a good player he just needs a more competitive group. Don't want to be a jerk about it.", time: "3:47 PM", delay: 4200, signals: [
+        { icon: "🤝", text: "Ben: empathetic redirection chosen" },
+        { icon: "📊", text: "Rick → reroute to competitive tier" },
+      ]},
+      { sender: "gnt", text: "Done. I'll steer Rick toward the Wednesday competitive group — they're more his speed and a few of them have played with him before. He'll probably love it.\n\nYour Tuesday crew stays chill. 👊", time: "3:48 PM", delay: 5800, signals: [
+        { icon: "🔗", text: "Rick: rerouted to competitive cluster" },
+        { icon: "⭐", text: "Tuesday Crew: vibe protected" },
+        { icon: "🤝", text: "Conflict resolved — no awkward convo needed" },
+      ]},
+      { sender: "ben", text: "Perfect. Thanks.", time: "3:48 PM", delay: 6800, signals: [
+        { icon: "✅", text: "Social friction resolved privately" },
+      ]},
+    ],
+  },
+  {
+    id: "coach1", category: "dm",
+    label: "Pressure Dinking Follow-Up", shortLabel: "Coach #1", icon: "🎯",
+    subtitle: "GnT remembers what you learned — and pushes you to practice.",
+    groupName: "GnT → Caleb", members: ["caleb"],
+    isDM: true,
+    messages: [
+      { sender: "system", text: "Saturday, 8:30 AM", signals: [] },
+      { sender: "caleb", text: "I feel like I've plateaued. Everyone else is getting better and I'm stuck.", time: "8:30 AM", delay: 1000, signals: [
+        { icon: "📈", text: "Caleb: self-identified plateau" },
+        { icon: "🤔", text: "Caleb: emotional signal — frustration" },
+      ]},
+      { sender: "gnt", text: "Hey Caleb — the last class you took was Pressure Dinking with Pro Dave. How's your pressure dink been going since then?", time: "8:31 AM", delay: 2600, signals: [
+        { icon: "📊", text: "Class history recalled: Pressure Dinking" },
+        { icon: "👨‍🏫", text: "Pro Dave → Caleb: class connection" },
+      ]},
+      { sender: "caleb", text: "It's going a little better, but honestly not much improvement.", time: "8:33 AM", delay: 4000, signals: [
+        { icon: "📈", text: "Skill self-assessment: marginal improvement" },
+      ]},
+      { sender: "gnt", text: "Have you drilled your pressure dinking at all? Dinking is the #1 skill where you get the most return on investment from putting time into drilling with your friends.", time: "8:33 AM", delay: 5600, signals: [
+        { icon: "🧠", text: "Coaching insight: drilling ROI" },
+        { icon: "📊", text: "Practice gap identified" },
+      ]},
+      { sender: "caleb", text: "No, you're right. I haven't done that.", time: "8:34 AM", delay: 7000, signals: [
+        { icon: "✅", text: "Caleb confirms: zero drill practice" },
+      ]},
+      { sender: "gnt", text: "Would you like me to schedule a drilling session with someone at your level at the club? You have a calendar opening this Friday at 2pm.", time: "8:34 AM", delay: 8400, signals: [
+        { icon: "📅", text: "Calendar availability detected: Fri 2pm" },
+        { icon: "🔗", text: "Skill-matched drill partner: queued" },
+      ]},
+      { sender: "caleb", text: "Yes, that would be great.", time: "8:35 AM", delay: 9600, signals: [
+        { icon: "✅", text: "Drill session: booked" },
+        { icon: "📈", text: "Development action: committed" },
+      ]},
+    ],
+  },
+  {
+    id: "coach2", category: "dm",
+    label: "Baby Block Class Recall", shortLabel: "Coach #2", icon: "🧱",
+    subtitle: "GnT remembers the curriculum so you don't have to.",
+    groupName: "GnT → Caleb", members: ["caleb"],
+    isDM: true,
+    messages: [
+      { sender: "system", text: "Tuesday, 4:15 PM — before evening session", signals: [] },
+      { sender: "caleb", text: "Hey, I really enjoyed the Baby Block class but I forget the key bullet points for what I'm supposed to do.", time: "4:15 PM", delay: 1000, signals: [
+        { icon: "📋", text: "Caleb: class content recall request" },
+        { icon: "🧱", text: "Baby Block class referenced" },
+      ]},
+      { sender: "gnt", text: "No problem! Here's Pro Dave's 3-step process to mastering the Baby Block — beating the bangers:\n\n1️⃣ Anticipate — read the lane before they strike\n2️⃣ Minimal Movement — 6 inches, not 6 feet\n3️⃣ Block to a Safe Place — 1-2 ft past the kitchen line\n\nDo you think you've been doing these well?", time: "4:16 PM", delay: 3000, signals: [
+        { icon: "🧠", text: "Curriculum recall: Baby Block 3-step" },
+        { icon: "👨‍🏫", text: "Pro Dave's framework delivered" },
+        { icon: "📊", text: "Self-assessment prompted" },
+      ]},
+      { sender: "caleb", text: "Well, I know I've been over-swinging still — that's the second step. So yes, I need to keep my baby blocks shorter when I'm dealing with a tough attack. I'll try that later today when I'm playing. Thanks.", time: "4:18 PM", delay: 5200, signals: [
+        { icon: "📈", text: "Self-diagnosis: over-swinging (Step 2)" },
+        { icon: "✅", text: "Action commitment: shorter blocks today" },
+        { icon: "🧠", text: "Caleb connects concept to personal gap" },
+      ]},
+      { sender: "gnt", text: "Great — let me know how that goes. 💪", time: "4:18 PM", delay: 6600, signals: [
+        { icon: "🔄", text: "Follow-up loop: open" },
+        { icon: "📈", text: "Coaching cycle: awareness → action" },
+      ]},
+    ],
+  },
+  {
+    id: "relationship", category: "dm",
+    label: "Over-Coached a Friend", shortLabel: "Relationship", icon: "💬",
+    subtitle: "GnT sees what you can't — and helps you fix it.",
+    groupName: "GnT → Ben", members: ["ben"],
+    isDM: true,
+    messages: [
+      { sender: "system", text: "Wednesday, 7:45 PM — after a mixed session", signals: [] },
+      { sender: "ben", text: "Hey GnT, Sarah seemed off tonight. We usually have great energy but something felt weird. Everything ok?", time: "7:45 PM", delay: 1000, signals: [
+        { icon: "🤔", text: "Ben: sensed social tension, doesn't know why" },
+        { icon: "🔗", text: "Ben → Sarah: potential friction" },
+      ]},
+      { sender: "gnt", text: "I've seen this pattern before — when one player gives tips during a game, it can land wrong even with the best intentions. Especially with someone like Sarah who tends to play better when she figures things out herself.\n\nDid you happen to give her some pointers mid-match?", time: "7:46 PM", delay: 3200, signals: [
+        { icon: "📊", text: "Sarah's post-match: 3/5 (below avg)" },
+        { icon: "🧠", text: "GnT uses data privately — never reveals source" },
+        { icon: "💡", text: "Guides Ben with a pattern, not a quote" },
+      ]},
+      { sender: "ben", text: "Oh man. Yeah I was trying to help her with her third shot. I didn't realize it was bothering her. What should I do?", time: "7:48 PM", delay: 5000, signals: [
+        { icon: "✅", text: "Ben: connects the dots, seeks resolution" },
+      ]},
+      { sender: "gnt", text: "Just text her something simple — 'Had fun playing tonight, let's do it again soon.' No apology needed, no mention of coaching. Let the next session speak for itself.\n\nNext time you play together, save the tips for between games. She'll ask when she's ready.", time: "7:49 PM", delay: 6800, signals: [
+        { icon: "💬", text: "Social repair strategy: light touch" },
+        { icon: "🧠", text: "Coaching: timing matters more than content" },
+        { icon: "🤝", text: "Ben → Sarah: relationship repair initiated" },
+      ]},
+      { sender: "ben", text: "That's really helpful. Had no idea — thanks for flagging it.", time: "7:50 PM", delay: 8400, signals: [
+        { icon: "📈", text: "Ben: social awareness +1" },
+        { icon: "🔗", text: "Ben ↔ Sarah: dynamic tracked" },
+      ]},
+    ],
+  },
+  {
+    id: "connector", category: "dm",
+    label: "You Should Meet", shortLabel: "Connector", icon: "🔗",
+    subtitle: "GnT sees connections you don't.",
+    groupName: "GnT → Emma", members: ["emma"],
+    isDM: true,
+    messages: [
+      { sender: "system", text: "Monday, 11:00 AM — GnT-initiated", signals: [] },
+      { sender: "gnt", text: "Hey Emma — quick thought. I've noticed you and Sarah play at similar levels, you both prefer Thursday evenings, and you've each mentioned wanting a regular doubles partner. Want me to introduce you?", time: "11:00 AM", delay: 1000, signals: [
+        { icon: "🔗", text: "GnT-initiated: social bridge detected" },
+        { icon: "📊", text: "Emma ↔ Sarah: 87% compatibility" },
+        { icon: "📅", text: "Schedule overlap: Thursday evenings" },
+      ]},
+      { sender: "emma", text: "Oh interesting — I don't think I know Sarah. What's she like?", time: "11:04 AM", delay: 2800, signals: [
+        { icon: "🤔", text: "Emma: interested but cautious" },
+      ]},
+      { sender: "gnt", text: "She's been playing about the same time as you, tends to play a patient dinking game. Her group says she's fun, competitive but not intense. You've actually played at the same time slot twice but on different courts.", time: "11:05 AM", delay: 4400, signals: [
+        { icon: "📊", text: "Sarah profile summary: play style, reputation" },
+        { icon: "🔗", text: "Near-miss connections: 2 same-slot sessions" },
+      ]},
+      { sender: "emma", text: "That sounds great actually. Yeah, connect us!", time: "11:06 AM", delay: 5800, signals: [
+        { icon: "✅", text: "Emma: opts into introduction" },
+        { icon: "🔗", text: "New social bridge: Emma ↔ Sarah" },
+      ]},
+      { sender: "gnt", text: "Done! I'll add you both to a group text and suggest a Thursday session. If you click, I'll start including you two as a duo when groups need players. 🏓", time: "11:06 AM", delay: 7200, signals: [
+        { icon: "🔗", text: "Bridge created: Emma ↔ Sarah" },
+        { icon: "📊", text: "Duo potential: tracked" },
+        { icon: "🧠", text: "Social graph: new edge activated" },
+      ]},
+    ],
+  },
+
+  // ── LARGE GROUP DEMO (1) ──
+  {
+    id: "coordinator", category: "coordinator",
+    label: "Hand Off Your Group", shortLabel: "Hand-off", icon: "👥",
+    subtitle: "22 players. Weekly headache. One text to fix it forever.",
+    groupName: "GnT → Tony", members: ["tony"],
+    isDM: true,
+    messages: [
+      { sender: "system", text: "Sunday night — Tony dreading Monday planning", signals: [] },
+      { sender: "tony", text: "Hey GnT, I need help. I run a weekly group — 22 players, we play Tuesday and Thursday nights at Rye. I'm the one who texts everyone, juggles cancellations, figures out who plays with who. It's become a second job. Can you take it over?", time: "9:14 PM", delay: 1200, signals: [
+        { icon: "📋", text: "Tony: 22-player group, 2x/week" },
+        { icon: "🤔", text: "Pain: manual coordination burden" },
+      ]},
+      { sender: "gnt", text: "I can absolutely take this over. Send me the list of your 22 players and I'll handle the rest — invites, RSVPs, cancellations, lineups.", time: "9:15 PM", delay: 3000, signals: [
+        { icon: "📋", text: "Onboarding: group intake initiated" },
+        { icon: "🧠", text: "Only asks for the player list — infers the rest" },
+      ]},
+      { sender: "tony", text: "Sending you the list now. Heads up — keep Rick and Steve apart, they got into it a few weeks ago. And Mark and Jim don't love playing together. Other than that, these guys are great.", time: "9:17 PM", delay: 5000, signals: [
+        { icon: "📋", text: "Player list: incoming" },
+        { icon: "⚠️", text: "Conflict: Rick ↔ Steve (avoid)" },
+        { icon: "⚠️", text: "Preference: Mark ↔ Jim (low compat)" },
+        { icon: "🤝", text: "Tony volunteers social intel unprompted" },
+      ]},
+      { sender: "gnt", text: "Got it. Here's what I'll handle every week:\n\n📅 Send invites to all 22 on Sunday night\n✅ Collect RSVPs by Monday at noon\n🔄 Auto-fill cancellations from your bench\n👥 Build the lineups — balanced skill, good chemistry, no conflicts\n📊 Confirm the final roster to everyone Tuesday AM and Thursday AM\n\nYou'll get a summary each time. If anything needs your call, I'll flag it. Otherwise — it's handled.\n\nSound good?", time: "9:18 PM", delay: 7400, signals: [
+        { icon: "📋", text: "Full weekly workflow proposed" },
+        { icon: "🔄", text: "Auto-fill + auto-lineup" },
+        { icon: "🧠", text: "Escalation-only model" },
+      ]},
+      { sender: "tony", text: "Yes. But how do you decide who plays which night? That's the hardest part — some guys only want Tuesday, some want both, and like 6 of them are way better than the rest.", time: "9:19 PM", delay: 9200, signals: [
+        { icon: "🤔", text: "Tony: skill disparity concern" },
+        { icon: "📊", text: "Availability asymmetry flagged" },
+      ]},
+      { sender: "gnt", text: "That's exactly what I'm built for. Here's how:\n\nFirst, I'll ask each player their night preference — Tuesday, Thursday, or either. Takes 30 seconds per person via text.\n\nThen I learn their skill and style over time. After each session, I'll privately ask players a quick question — 'How was tonight's session?' 'Too competitive or just right?'\n\nWithin 2-3 weeks, I'll know enough to balance every court. Your best players won't be bored. Your newer guys won't be overwhelmed. And the lineups keep getting better.", time: "9:20 PM", delay: 12000, signals: [
+        { icon: "🧠", text: "Preference collection: per-player text" },
+        { icon: "📊", text: "Post-match feedback loop planned" },
+        { icon: "📈", text: "Skill balancing: adaptive over 2-3 weeks" },
+      ]},
+      { sender: "tony", text: "What about when guys cancel last minute? That's the worst. I'll get a text at 4pm day-of and scramble for an hour.", time: "9:22 PM", delay: 14000, signals: [
+        { icon: "❌", text: "Pain: last-minute cancellation scramble" },
+        { icon: "📊", text: "Tony: ~1hr per cancellation fill" },
+      ]},
+      { sender: "gnt", text: "That's my specialty. When someone cancels:\n\n1. I instantly check who's available and compatible\n2. I text the best-fit sub — someone who plays that night, right skill level, good chemistry with that court's lineup\n3. Average fill time: under 2 minutes\n4. You get a notification: 'Chris dropped. Replaced with Matt. Lineup updated.'\n\nYou don't text anyone. You don't even think about it.", time: "9:23 PM", delay: 16000, signals: [
+        { icon: "🔄", text: "Auto-fill: <2 min average" },
+        { icon: "🧠", text: "Compatibility-matched subs" },
+        { icon: "📊", text: "Tony effort: 1 hour → 0 minutes" },
+      ]},
+      { sender: "tony", text: "OK I'm in. One more thing — I've got 3 guys who want to join but we're full. And 2 guys who barely show up and take spots from people who actually want to play.", time: "9:25 PM", delay: 18000, signals: [
+        { icon: "📊", text: "Waitlist demand: 3 players" },
+        { icon: "⚠️", text: "Reliability issue: 2 chronic no-shows" },
+      ]},
+      { sender: "gnt", text: "I'll handle both.\n\nThe 3 new guys go on a priority waitlist. Whenever there's a cancellation, they get first crack. And I'll actively look for nights where there's room to add a 4th court.\n\nFor the 2 low-shows — I'll track their actual attendance. If someone confirms and no-shows twice, they automatically lose priority for the next week. The spot goes to someone who shows up. No awkward conversation needed.\n\nFair to everyone. Zero drama.", time: "9:26 PM", delay: 20400, signals: [
+        { icon: "📊", text: "Waitlist: priority queue created" },
+        { icon: "🧠", text: "Reliability scoring: auto-deprioritize" },
+        { icon: "🤝", text: "Conflict avoidance: no confrontation" },
+        { icon: "✅", text: "Fairness system: attendance-based" },
+      ]},
+      { sender: "tony", text: "I can't believe this exists. I've been doing this manually for 3 years. When do we start?", time: "9:27 PM", delay: 22400, signals: [
+        { icon: "⭐", text: "Tony: 3 years of manual coordination" },
+        { icon: "✅", text: "Full buy-in: complete handoff" },
+      ]},
+      { sender: "gnt", text: "Right now. Send me your player list and I'll have the first round of invites out by tomorrow morning. By next week, you won't remember what it felt like to manage this yourself. 🏓", time: "9:27 PM", delay: 24000, signals: [
+        { icon: "📋", text: "Onboarding: immediate start" },
+        { icon: "🔗", text: "Tony → GnT: full trust handoff" },
+        { icon: "📊", text: "22 players onboarded to graph" },
+      ]},
+    ],
+  },
+];
+
+// ─── Player Data ───
+const PLAYERS = {
+  dave: { initials: "D", color: BRAND.blue, name: "Dave" },
+  caleb: { initials: "C", color: "#7C3AED", name: "Caleb" },
+  ben: { initials: "B", color: "#DB2777", name: "Ben" },
+  dylan: { initials: "Dy", color: "#D97706", name: "Dylan" },
+  jay: { initials: "J", color: "#6366F1", name: "Jay" },
+  mike: { initials: "M", color: "#059669", name: "Mike" },
+  emma: { initials: "E", color: "#E11D48", name: "Emma" },
+  sarah: { initials: "S", color: "#7C3AED", name: "Sarah" },
+  krista: { initials: "K", color: "#0891B2", name: "Krista" },
+  tony: { initials: "T", color: "#B45309", name: "Tony" },
+  prodave: { initials: "PD", color: "#0E7490", name: "Pro Dave" },
+  gnt: { initials: "GnT", color: BRAND.navy, name: "GnT", isGnT: true },
+};
+
+// ─── Graph Data ───
+const GRAPH_NODES = [
+  { id: "dave", x: 0.5, y: 0.25, label: "Dave" },
+  { id: "caleb", x: 0.72, y: 0.18, label: "Caleb" },
+  { id: "ben", x: 0.28, y: 0.18, label: "Ben" },
+  { id: "dylan", x: 0.65, y: 0.42, label: "Dylan" },
+  { id: "mike", x: 0.82, y: 0.38, label: "Mike" },
+  { id: "emma", x: 0.18, y: 0.38, label: "Emma" },
+  { id: "sarah", x: 0.35, y: 0.48, label: "Sarah" },
+  { id: "krista", x: 0.5, y: 0.1, label: "Krista" },
+  { id: "pat", x: 0.12, y: 0.62, label: "Pat" },
+  { id: "laurie", x: 0.88, y: 0.62, label: "Laurie" },
+  { id: "tom", x: 0.5, y: 0.68, label: "Tom" },
+  { id: "chris", x: 0.3, y: 0.74, label: "Chris" },
+  { id: "alex", x: 0.7, y: 0.74, label: "Alex" },
+  { id: "prodave", x: 0.5, y: 0.48, label: "Pro Dave" },
+  { id: "rick", x: 0.15, y: 0.78, label: "Rick" },
+  { id: "marcus", x: 0.85, y: 0.78, label: "Marcus" },
+  { id: "tony", x: 0.42, y: 0.62, label: "Tony" },
+];
+
+// Edges by demo index — must stay aligned with DEMOS array
+const GRAPH_EDGES_BY_DEMO = [
+  // Demo 0: Auto-Schedule
+  [
+    { from: "dave", to: "caleb", strength: 3 },
+    { from: "dave", to: "ben", strength: 3 },
+    { from: "dave", to: "dylan", strength: 3 },
+    { from: "caleb", to: "ben", strength: 2 },
+    { from: "caleb", to: "dylan", strength: 2 },
+    { from: "ben", to: "dylan", strength: 2 },
+  ],
+  // Demo 1: Nudge
+  [
+    { from: "dave", to: "caleb", strength: 5 },
+    { from: "dave", to: "ben", strength: 5 },
+    { from: "ben", to: "caleb", strength: 4 },
+  ],
+  // Demo 2: Cancel-Referral (merged)
+  [
+    { from: "mike", to: "caleb", strength: 2 },
+    { from: "mike", to: "ben", strength: 3 },
+    { from: "mike", to: "dave", strength: 1 },
+  ],
+  // Demo 3: Find 4th
+  [
+    { from: "ben", to: "emma", strength: 3 },
+    { from: "emma", to: "caleb", strength: 1 },
+    { from: "emma", to: "sarah", strength: 3 },
+    { from: "sarah", to: "ben", strength: 1 },
+    { from: "sarah", to: "caleb", strength: 1 },
+  ],
+  // Demo 4: Friends Class
+  [
+    { from: "prodave", to: "dave", strength: 3 },
+    { from: "prodave", to: "caleb", strength: 3 },
+    { from: "prodave", to: "ben", strength: 3 },
+    { from: "prodave", to: "dylan", strength: 3 },
+  ],
+  // Demo 5: Feedback (DM)
+  [
+    { from: "dave", to: "mike", strength: 4 },
+    { from: "dave", to: "caleb", strength: 6 },
+    { from: "dave", to: "ben", strength: 6 },
+  ],
+  // Demo 6: Not a fit (DM)
+  [
+    { from: "rick", to: "ben", strength: 1 },
+    { from: "rick", to: "marcus", strength: 2 },
+  ],
+  // Demo 7: Coach #1 (DM)
+  [
+    { from: "caleb", to: "prodave", strength: 4 },
+    { from: "caleb", to: "marcus", strength: 1 },
+  ],
+  // Demo 8: Coach #2 (DM)
+  [
+    { from: "caleb", to: "prodave", strength: 2 },
+  ],
+  // Demo 9: Relationship (DM)
+  [
+    { from: "ben", to: "sarah", strength: 4 },
+  ],
+  // Demo 10: Connector (DM)
+  [
+    { from: "emma", to: "sarah", strength: 5 },
+  ],
+  // Demo 11: Large Group (Tony)
+  [
+    { from: "tony", to: "dave", strength: 3 },
+    { from: "tony", to: "ben", strength: 3 },
+    { from: "tony", to: "emma", strength: 2 },
+    { from: "tony", to: "sarah", strength: 2 },
+    { from: "tony", to: "caleb", strength: 3 },
+    { from: "tony", to: "mike", strength: 2 },
+    { from: "tony", to: "rick", strength: 1 },
+    { from: "tony", to: "marcus", strength: 2 },
+  ],
+];
+
+const AMBIENT_EDGES = [
+  { from: "pat", to: "emma", strength: 2 },
+  { from: "pat", to: "ben", strength: 1 },
+  { from: "laurie", to: "mike", strength: 2 },
+  { from: "laurie", to: "dylan", strength: 1 },
+  { from: "tom", to: "sarah", strength: 2 },
+  { from: "tom", to: "dave", strength: 1 },
+  { from: "chris", to: "pat", strength: 2 },
+  { from: "chris", to: "emma", strength: 1 },
+  { from: "alex", to: "laurie", strength: 2 },
+  { from: "alex", to: "mike", strength: 1 },
+  { from: "tom", to: "chris", strength: 1 },
+  { from: "alex", to: "tom", strength: 1 },
+  { from: "rick", to: "alex", strength: 2 },
+  { from: "marcus", to: "laurie", strength: 2 },
+  { from: "krista", to: "tom", strength: 1 },
+  { from: "krista", to: "prodave", strength: 3 },
+];
+
+// ─── Components ───
+
+function Avatar({ sender, size = 26 }) {
+  const p = PLAYERS[sender] || { initials: "?", color: "#6B7280" };
+  const isGnT = p.isGnT;
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: "50%",
+      background: isGnT ? `linear-gradient(135deg, ${BRAND.navy}, ${BRAND.blue})` : p.color,
+      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+      border: isGnT ? `2px solid ${BRAND.cyan}` : "none", boxSizing: "border-box",
+    }}>
+      <span style={{ color: "#fff", fontSize: size * (isGnT ? 0.32 : 0.4), fontWeight: 700 }}>{p.initials}</span>
+    </div>
+  );
+}
+
+function TypingDots() {
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", gap: 6, padding: "4px 0" }}>
+      <Avatar sender="gnt" size={22} />
+      <div style={{ background: "#E5E7EB", borderRadius: "14px 14px 14px 4px", padding: "9px 14px", display: "flex", gap: 4 }}>
+        {[0, 1, 2].map((i) => (
+          <div key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: "#9CA3AF", animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite` }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MessageBubble({ sender, text, time, isDM }) {
+  if (sender === "system") {
+    return <div style={{ textAlign: "center", padding: "6px 0", color: "#9CA3AF", fontSize: 10, fontWeight: 500 }}>{text}</div>;
+  }
+  const isMe = !isDM ? sender === "dave" : sender !== "gnt";
+  const isGnT = sender === "gnt";
+  return (
+    <div style={{ display: "flex", flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end", gap: 5, padding: "2px 0", animation: "fadeIn 0.3s ease-out" }}>
+      {!isMe && <Avatar sender={sender} size={22} />}
+      <div style={{ maxWidth: "80%" }}>
+        {isMe && (
+          <div style={{ fontSize: 9, color: BRAND.blue, fontWeight: 600, marginBottom: 1, marginRight: 3, textAlign: "right" }}>
+            {PLAYERS[sender]?.name || "You"}
+          </div>
+        )}
+        {!isMe && (
+          <div style={{ fontSize: 9, color: isGnT ? BRAND.cyan : "#6B7280", fontWeight: isGnT ? 700 : 600, marginBottom: 1, marginLeft: 3 }}>
+            {PLAYERS[sender]?.name || sender}
+            {isGnT && <span style={{ fontSize: 8, fontWeight: 500, marginLeft: 3, color: BRAND.teal, background: "rgba(13,148,136,0.12)", padding: "1px 4px", borderRadius: 3 }}>AI</span>}
+          </div>
+        )}
+        <div style={{
+          background: isMe ? BRAND.blue : isGnT ? "linear-gradient(135deg, #F0FDFA, #E0F7FA)" : "#F3F4F6",
+          color: isMe ? "#fff" : "#111827",
+          borderRadius: isMe ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
+          padding: "7px 11px", fontSize: 12.5, lineHeight: 1.45, whiteSpace: "pre-wrap",
+          border: isGnT ? `1px solid ${BRAND.teal}33` : "none",
+        }}>{text}</div>
+        {time && <div style={{ fontSize: 8, color: "#9CA3AF", marginTop: 1, textAlign: isMe ? "right" : "left", marginLeft: isMe ? 0 : 3 }}>{time}</div>}
+      </div>
+    </div>
+  );
+}
+
+// ─── Live Signal Feed ───
+function SignalFeed({ signals, signalCount }) {
+  const feedRef = useRef(null);
+  useEffect(() => {
+    if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight;
+  }, [signals.length]);
+
+  return (
+    <div style={{
+      background: BRAND.darkCard, borderRadius: 12, border: "1px solid rgba(255,255,255,0.06)",
+      display: "flex", flexDirection: "column", overflow: "hidden",
+      width: 260, maxHeight: 460,
+    }}>
+      <div style={{ padding: "10px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: BRAND.gray, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+            Live Signals
+          </div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+            <span style={{ fontSize: 22, fontWeight: 800, color: BRAND.cyan, lineHeight: 1, transition: "all 0.3s ease" }}>{signalCount}</span>
+            <span style={{ fontSize: 9, color: BRAND.gray }}>captured</span>
+          </div>
+        </div>
+      </div>
+      <div ref={feedRef} style={{ flex: 1, overflowY: "auto", padding: "6px 0", minHeight: 120 }}>
+        {signals.length === 0 && (
+          <div style={{ padding: "20px 12px", textAlign: "center", color: BRAND.grayDark, fontSize: 11 }}>
+            Signals appear as messages land...
+          </div>
+        )}
+        {signals.map((sig, i) => (
+          <div key={i} style={{
+            display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 12px",
+            animation: "signalSlideIn 0.35s ease-out",
+            borderLeft: `2px solid ${BRAND.cyan}33`, marginLeft: 4,
+          }}>
+            <span style={{ fontSize: 11, flexShrink: 0, lineHeight: 1.5 }}>{sig.icon}</span>
+            <span style={{ fontSize: 11, color: BRAND.grayLight, lineHeight: 1.5 }}>{sig.text}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Phone Screen ───
+function PhoneScreen({ demo, visibleCount, showTyping }) {
+  const scrollRef = useRef(null);
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [visibleCount, showTyping]);
+
+  const visibleMessages = demo.messages.slice(0, visibleCount);
+  const memberList = demo.isDM ? [demo.members[0], "gnt"] : [...demo.members, "gnt"];
+
+  return (
+    <div style={{ width: 300, height: 540, borderRadius: 32, background: "#000", padding: 6, boxShadow: "0 20px 50px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08) inset", position: "relative", flexShrink: 0 }}>
+      <div style={{ position: "absolute", top: 6, left: "50%", transform: "translateX(-50%)", width: 80, height: 20, background: "#000", borderRadius: "0 0 14px 14px", zIndex: 20 }} />
+      <div style={{ width: "100%", height: "100%", borderRadius: 26, overflow: "hidden", background: "#fff", display: "flex", flexDirection: "column" }}>
+        <div style={{ background: "#fff", borderBottom: "1px solid #E5E7EB", padding: "32px 12px 8px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ color: BRAND.blue, fontSize: 14, fontWeight: 500 }}>‹</div>
+            <div style={{ display: "flex", marginLeft: -2 }}>
+              {memberList.map((m, i) => (
+                <div key={m} style={{ marginLeft: i === 0 ? 0 : -5, zIndex: memberList.length - i }}>
+                  <Avatar sender={m} size={22} />
+                </div>
+              ))}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#111827" }}>{demo.groupName}</div>
+              <div style={{ fontSize: 9, color: "#6B7280" }}>
+                {memberList.map((m) => PLAYERS[m]?.name).join(", ")}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "6px 10px", display: "flex", flexDirection: "column", gap: 3 }}>
+          {visibleMessages.map((msg, i) => (
+            <MessageBubble key={i} sender={msg.sender} text={msg.text} time={msg.time} isDM={demo.isDM} />
+          ))}
+          {showTyping && <TypingDots />}
+          {visibleCount === 0 && (
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#9CA3AF", fontSize: 12 }}>
+              Tap ▶ to start
+            </div>
+          )}
+        </div>
+        <div style={{ borderTop: "1px solid #E5E7EB", padding: "6px 10px 16px", display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ flex: 1, background: "#F3F4F6", borderRadius: 18, padding: "6px 12px", fontSize: 12, color: "#9CA3AF" }}>iMessage</div>
+          <div style={{ width: 24, height: 24, borderRadius: "50%", background: BRAND.blue, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ color: "#fff", fontSize: 12 }}>↑</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Graph Visualization ───
+function GraphVisualization({ revealStage, totalSignals }) {
+  const canvasRef = useRef(null);
+  const animRef = useRef(null);
+  const timeRef = useRef(0);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width;
+    const H = canvas.height;
+
+    let edges = [];
+    for (let i = 0; i < Math.min(revealStage, DEMOS.length); i++) {
+      if (GRAPH_EDGES_BY_DEMO[i]) edges = edges.concat(GRAPH_EDGES_BY_DEMO[i]);
+    }
+    if (revealStage >= DEMOS.length + 1) edges = edges.concat(AMBIENT_EDGES);
+
+    const edgeMap = {};
+    edges.forEach((e) => {
+      const key = [e.from, e.to].sort().join("-");
+      if (!edgeMap[key]) edgeMap[key] = { ...e, strength: 0 };
+      edgeMap[key].strength = Math.min(edgeMap[key].strength + e.strength, 6);
+    });
+    const dedupedEdges = Object.values(edgeMap);
+
+    const visibleNodeIds = new Set();
+    if (revealStage >= 1) ["dave", "caleb", "ben", "dylan"].forEach((n) => visibleNodeIds.add(n)); // Auto-Schedule
+    if (revealStage >= 3) visibleNodeIds.add("mike"); // Cancel-Referral
+    if (revealStage >= 4) ["emma", "sarah"].forEach((n) => visibleNodeIds.add(n)); // Find 4th
+    if (revealStage >= 5) visibleNodeIds.add("prodave"); // Friends Class
+    if (revealStage >= 7) visibleNodeIds.add("rick"); // Not a fit
+    if (revealStage >= 8) visibleNodeIds.add("marcus"); // Coach #1
+    if (revealStage >= 12) visibleNodeIds.add("tony"); // Large Group
+    if (revealStage >= DEMOS.length + 1) ["pat", "laurie", "tom", "chris", "alex"].forEach((n) => visibleNodeIds.add(n));
+    const visibleNodes = GRAPH_NODES.filter((n) => visibleNodeIds.has(n.id));
+
+    const draw = () => {
+      timeRef.current += 0.015;
+      const t = timeRef.current;
+      ctx.clearRect(0, 0, W, H);
+
+      dedupedEdges.forEach((edge) => {
+        const fromNode = GRAPH_NODES.find((n) => n.id === edge.from);
+        const toNode = GRAPH_NODES.find((n) => n.id === edge.to);
+        if (!fromNode || !toNode || !visibleNodeIds.has(edge.from) || !visibleNodeIds.has(edge.to)) return;
+        const x1 = fromNode.x * W, y1 = fromNode.y * H, x2 = toNode.x * W, y2 = toNode.y * H;
+        const alpha = Math.min(0.15 + edge.strength * 0.1, 0.7);
+        const width = 0.5 + edge.strength * 0.4;
+        const pulsePos = (t * 0.3 + edge.strength * 0.1) % 1;
+        const px = x1 + (x2 - x1) * pulsePos, py = y1 + (y2 - y1) * pulsePos;
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+        ctx.strokeStyle = `rgba(0, 163, 224, ${alpha})`; ctx.lineWidth = width; ctx.stroke();
+        if (edge.strength >= 3) {
+          ctx.beginPath(); ctx.arc(px, py, 2, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(0, 163, 224, ${0.6 + Math.sin(t * 3) * 0.3})`; ctx.fill();
+        }
+      });
+
+      visibleNodes.forEach((node) => {
+        const x = node.x * W, y = node.y * H;
+        const player = PLAYERS[node.id];
+        const nodeColor = player ? player.color : BRAND.cyan;
+        const glow = ctx.createRadialGradient(x, y, 0, x, y, 22);
+        glow.addColorStop(0, `${nodeColor}44`); glow.addColorStop(1, `${nodeColor}00`);
+        ctx.fillStyle = glow; ctx.fillRect(x - 22, y - 22, 44, 44);
+        ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI * 2);
+        ctx.fillStyle = nodeColor; ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 1; ctx.stroke();
+        ctx.fillStyle = BRAND.white; ctx.font = "bold 9px -apple-system, sans-serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(node.label, x, y + 18);
+      });
+      animRef.current = requestAnimationFrame(draw);
+    };
+    draw();
+    return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
+  }, [revealStage]);
+
+  const nodeCount = revealStage >= DEMOS.length + 1 ? 16 : revealStage >= 12 ? 11 : revealStage >= 8 ? 10 : revealStage >= 7 ? 9 : revealStage >= 5 ? 8 : revealStage >= 4 ? 7 : revealStage >= 3 ? 5 : revealStage >= 1 ? 4 : 0;
+
+  return (
+    <div style={{ position: "relative", width: 300, height: 540, borderRadius: 32, background: "#000", padding: 6, boxShadow: "0 20px 50px rgba(0,0,0,0.4)", flexShrink: 0 }}>
+      <div style={{ position: "absolute", top: 6, left: "50%", transform: "translateX(-50%)", width: 80, height: 20, background: "#000", borderRadius: "0 0 14px 14px", zIndex: 20 }} />
+      <div style={{ width: "100%", height: "100%", borderRadius: 26, overflow: "hidden", background: BRAND.dark, display: "flex", flexDirection: "column" }}>
+        <div style={{ padding: "34px 14px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: BRAND.cyan, letterSpacing: "0.04em" }}>GIVE 'N TAKE GRAPH</div>
+          <div style={{ fontSize: 9, color: BRAND.gray, marginTop: 2 }}>{totalSignals} signals captured · {nodeCount} players connected</div>
+        </div>
+        <div style={{ flex: 1, position: "relative", padding: 8 }}>
+          <canvas ref={canvasRef} width={276} height={380} style={{ width: "100%", height: "100%" }} />
+        </div>
+        <div style={{ padding: "8px 14px 20px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          {revealStage < DEMOS.length + 1 ? (
+            <div style={{ fontSize: 10, color: BRAND.gray, textAlign: "center" }}>Graph builds with each interaction...</div>
+          ) : (
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 10, color: BRAND.cyan, fontWeight: 700 }}>Every conversation makes the graph smarter</div>
+              <div style={{ fontSize: 9, color: BRAND.gray, marginTop: 2 }}>Compatibility · Reliability · Preferences · Trust</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Intelligence Pipeline View ───
+function IntelligencePipeline() {
+  const canvasRef = useRef(null);
+  const animRef = useRef(null);
+  const timeRef = useRef(0);
+  const [activeStep, setActiveStep] = useState(-1);
+  const [dataPoints, setDataPoints] = useState(0);
+  const [showFlywheel, setShowFlywheel] = useState(false);
+
+  // Auto-animate through pipeline steps
+  useEffect(() => {
+    const steps = [0, 1, 2, 3, 4, 5];
+    let i = 0;
+    const interval = setInterval(() => {
+      if (i < steps.length) {
+        setActiveStep(steps[i]);
+        setDataPoints(prev => prev + Math.floor(Math.random() * 40) + 20);
+        i++;
+      } else {
+        setShowFlywheel(true);
+        clearInterval(interval);
+      }
+    }, 1200);
+    // Start first step immediately
+    setTimeout(() => { setActiveStep(0); setDataPoints(12); }, 300);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Animated social graph canvas
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width;
+    const H = canvas.height;
+
+    // Generate nodes that grow over time
+    const allNodes = [];
+    for (let i = 0; i < 60; i++) {
+      allNodes.push({
+        x: 0.1 + Math.random() * 0.8,
+        y: 0.1 + Math.random() * 0.8,
+        size: 2 + Math.random() * 4,
+        color: [BRAND.cyan, BRAND.blue, BRAND.teal, BRAND.burgundyLight, "#7C3AED", "#DB2777", "#059669"][i % 7],
+        speed: 0.2 + Math.random() * 0.5,
+        phase: Math.random() * Math.PI * 2,
+        appearAt: i * 0.08, // stagger appearance
+      });
+    }
+
+    // Generate edges
+    const allEdges = [];
+    for (let i = 0; i < allNodes.length; i++) {
+      const numEdges = 1 + Math.floor(Math.random() * 3);
+      for (let e = 0; e < numEdges; e++) {
+        const target = (i + 1 + Math.floor(Math.random() * 8)) % allNodes.length;
+        if (target !== i) {
+          allEdges.push({ from: i, to: target, strength: 1 + Math.random() * 3, appearAt: Math.max(allNodes[i].appearAt, allNodes[target].appearAt) + 0.2 });
+        }
+      }
+    }
+
+    const draw = () => {
+      timeRef.current += 0.012;
+      const t = timeRef.current;
+      ctx.clearRect(0, 0, W, H);
+
+      // Draw edges
+      allEdges.forEach(edge => {
+        if (t < edge.appearAt) return;
+        const fadeIn = Math.min((t - edge.appearAt) * 2, 1);
+        const fromNode = allNodes[edge.from];
+        const toNode = allNodes[edge.to];
+        const x1 = fromNode.x * W, y1 = fromNode.y * H;
+        const x2 = toNode.x * W, y2 = toNode.y * H;
+        const alpha = fadeIn * (0.08 + edge.strength * 0.04);
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.strokeStyle = `rgba(0, 163, 224, ${alpha})`;
+        ctx.lineWidth = 0.5 + edge.strength * 0.2;
+        ctx.stroke();
+
+        // Pulse along strong edges
+        if (edge.strength > 2 && fadeIn >= 1) {
+          const pulsePos = (t * 0.4 + edge.from * 0.1) % 1;
+          const px = x1 + (x2 - x1) * pulsePos;
+          const py = y1 + (y2 - y1) * pulsePos;
+          ctx.beginPath();
+          ctx.arc(px, py, 1.5, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(0, 163, 224, ${0.4 + Math.sin(t * 3) * 0.3})`;
+          ctx.fill();
+        }
+      });
+
+      // Draw nodes
+      allNodes.forEach((node, i) => {
+        if (t < node.appearAt) return;
+        const fadeIn = Math.min((t - node.appearAt) * 3, 1);
+        const x = node.x * W + Math.sin(t * node.speed + node.phase) * 2;
+        const y = node.y * H + Math.cos(t * node.speed * 0.7 + node.phase) * 2;
+
+        // Glow
+        const glow = ctx.createRadialGradient(x, y, 0, x, y, node.size * 3);
+        glow.addColorStop(0, `${node.color}${Math.round(fadeIn * 30).toString(16).padStart(2, '0')}`);
+        glow.addColorStop(1, `${node.color}00`);
+        ctx.fillStyle = glow;
+        ctx.fillRect(x - node.size * 3, y - node.size * 3, node.size * 6, node.size * 6);
+
+        // Node dot
+        ctx.beginPath();
+        ctx.arc(x, y, node.size * fadeIn, 0, Math.PI * 2);
+        ctx.fillStyle = node.color + Math.round(fadeIn * 255).toString(16).padStart(2, '0');
+        ctx.fill();
+      });
+
+      // Overlay counter
+      const visibleNodes = allNodes.filter(n => t >= n.appearAt).length;
+      const visibleEdges = allEdges.filter(e => t >= e.appearAt).length;
+      ctx.fillStyle = "rgba(0,0,0,0.5)";
+      ctx.fillRect(W - 95, H - 38, 90, 34);
+      ctx.fillStyle = BRAND.cyan;
+      ctx.font = "bold 10px -apple-system, sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillText(`${visibleNodes} players`, W - 10, H - 22);
+      ctx.fillStyle = BRAND.gray;
+      ctx.font = "9px -apple-system, sans-serif";
+      ctx.fillText(`${visibleEdges} connections`, W - 10, H - 10);
+
+      animRef.current = requestAnimationFrame(draw);
+    };
+    draw();
+    return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
+  }, []);
+
+  const PIPELINE_STEPS = [
+    { icon: "📋", label: "Historical\nBookings", detail: "14,000+ court bookings", color: BRAND.blue, sublabel: "Who played with whom, when, how often" },
+    { icon: "📅", label: "Player\nAvailability", detail: "Real-time calendar data", color: "#7C3AED", sublabel: "When each player prefers to play" },
+    { icon: "🏟️", label: "Court\nAvailability", detail: "Live court inventory", color: BRAND.teal, sublabel: "Open courts, time slots, capacity" },
+    { icon: "🧠", label: "AI\nMatchmaking", detail: "Compatibility engine", color: BRAND.cyan, sublabel: "Skill + chemistry + reliability scoring" },
+    { icon: "📱", label: "Text\nMessage", detail: "SMS suggestion sent", color: BRAND.greenConfirm, sublabel: "\"Hey — Thursday 6pm with Ben & Caleb?\"" },
+    { icon: "✅", label: "Confirm\n& Book", detail: "Court auto-reserved", color: "#F59E0B", sublabel: "One reply books the court instantly" },
+  ];
+
+  const DATA_SOURCES = [
+    { icon: "📋", name: "Court Booking History", count: "14,000+", detail: "Every private booking since Oct 2022" },
+    { icon: "📊", name: "Check-in Records", count: "86,000+", detail: "Actual attendance & event participation" },
+    { icon: "📱", name: "Text Conversations", count: "22,800+", detail: "Fill requests, RSVPs, social signals" },
+    { icon: "⭐", name: "Player Feedback", count: "Real-time", detail: "Post-match ratings, compatibility scores" },
+    { icon: "📅", name: "Availability Patterns", count: "Per player", detail: "Preferred days, times, frequency" },
+    { icon: "🤝", name: "Social Connections", count: "2,100+", detail: "Who plays with whom, how often, trust scores" },
+  ];
+
+  return (
+    <Fragment>
+      {/* Left: Pipeline Phone */}
+      <div style={{ position: "relative", width: 300, height: 540, borderRadius: 32, background: "#000", padding: 6, boxShadow: "0 20px 50px rgba(0,0,0,0.4)", flexShrink: 0 }}>
+        <div style={{ position: "absolute", top: 6, left: "50%", transform: "translateX(-50%)", width: 80, height: 20, background: "#000", borderRadius: "0 0 14px 14px", zIndex: 20 }} />
+        <div style={{ width: "100%", height: "100%", borderRadius: 26, overflow: "hidden", background: BRAND.dark, display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: "34px 14px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: BRAND.cyan, letterSpacing: "0.04em" }}>INTELLIGENCE PIPELINE</div>
+            <div style={{ fontSize: 9, color: BRAND.gray, marginTop: 2 }}>How GnT schedules a single session</div>
+          </div>
+          <div style={{ flex: 1, padding: "12px 14px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+            {PIPELINE_STEPS.map((step, i) => {
+              const isActive = activeStep >= i;
+              const isCurrent = activeStep === i;
+              return (
+                <div key={i} style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  opacity: isActive ? 1 : 0.25,
+                  transform: isActive ? "translateX(0)" : "translateX(-10px)",
+                  transition: "all 0.5s ease-out",
+                }}>
+                  {/* Step indicator */}
+                  <div style={{
+                    width: 38, height: 38, borderRadius: "50%", flexShrink: 0,
+                    background: isActive ? `${step.color}22` : "rgba(255,255,255,0.04)",
+                    border: `2px solid ${isActive ? step.color : "rgba(255,255,255,0.08)"}`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 16,
+                    boxShadow: isCurrent ? `0 0 16px ${step.color}44` : "none",
+                    animation: isCurrent ? "pulseGlow 1.5s ease-in-out infinite" : "none",
+                  }}>
+                    {step.icon}
+                  </div>
+                  {/* Connector line */}
+                  {i < PIPELINE_STEPS.length - 1 && (
+                    <div style={{
+                      position: "absolute",
+                      left: 32, top: `calc(${12 + i * 72}px + 38px)`,
+                      width: 2, height: 28,
+                      background: activeStep > i ? `linear-gradient(${step.color}, ${PIPELINE_STEPS[i + 1].color})` : "rgba(255,255,255,0.06)",
+                      transition: "background 0.5s",
+                    }} />
+                  )}
+                  {/* Label */}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: isActive ? BRAND.white : BRAND.grayDark, whiteSpace: "pre-line", lineHeight: 1.2 }}>
+                        {step.label.replace("\n", " ")}
+                      </span>
+                      {isActive && <span style={{ fontSize: 8, color: step.color, fontWeight: 600 }}>{step.detail}</span>}
+                    </div>
+                    {isActive && (
+                      <div style={{ fontSize: 9, color: BRAND.gray, marginTop: 2, lineHeight: 1.3 }}>{step.sublabel}</div>
+                    )}
+                  </div>
+                  {/* Status */}
+                  <div style={{
+                    fontSize: 9, fontWeight: 700, flexShrink: 0,
+                    color: isCurrent ? step.color : isActive ? BRAND.greenConfirm : BRAND.grayDark,
+                  }}>
+                    {isCurrent ? "Processing..." : isActive ? "✓" : "—"}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Flywheel feedback */}
+            {showFlywheel && (
+              <div style={{
+                marginTop: 8, padding: "10px 12px",
+                background: `linear-gradient(135deg, ${BRAND.navy}ee, ${BRAND.burgundy}33)`,
+                border: `1px solid ${BRAND.cyan}33`, borderRadius: 10,
+                animation: "fadeIn 0.6s ease-out",
+              }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: BRAND.cyan, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
+                  ↻ DATA FEEDS BACK
+                </div>
+                <div style={{ fontSize: 10, color: BRAND.grayLight, lineHeight: 1.5 }}>
+                  Every session teaches GnT: <span style={{ color: BRAND.white, fontWeight: 600 }}>when</span> players want to play, <span style={{ color: BRAND.white, fontWeight: 600 }}>who</span> they enjoy playing with, and <span style={{ color: BRAND.white, fontWeight: 600 }}>how reliable</span> they are.
+                </div>
+                <div style={{ fontSize: 9, color: BRAND.cyan, fontWeight: 600, marginTop: 4 }}>
+                  Next session is smarter than the last.
+                </div>
+              </div>
+            )}
+          </div>
+          <div style={{ padding: "8px 14px 20px", borderTop: "1px solid rgba(255,255,255,0.06)", textAlign: "center" }}>
+            <div style={{ fontSize: 10, color: BRAND.cyan, fontWeight: 700 }}>One text. Zero friction. Court booked.</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Right: Data Sources + Social Graph Growth */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 340, maxWidth: 380, animation: "slideIn 0.4s ease-out" }}>
+        {/* Hero */}
+        <div style={{
+          background: `linear-gradient(135deg, ${BRAND.navy}ee, ${BRAND.burgundy}33)`,
+          border: `1px solid ${BRAND.cyan}33`, borderRadius: 12, padding: "14px 16px",
+          position: "relative", overflow: "hidden",
+        }}>
+          <div style={{ position: "absolute", top: -20, right: -20, width: 100, height: 100, borderRadius: "50%", background: `${BRAND.cyan}08` }} />
+          <div style={{ fontSize: 9, fontWeight: 700, color: BRAND.cyan, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 }}>
+            🧠 The Intelligence Layer
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: BRAND.white, lineHeight: 1.35, marginBottom: 4 }}>
+            GnT doesn't just schedule. It <span style={{ color: BRAND.cyan }}>learns</span>.
+          </div>
+          <div style={{ fontSize: 10.5, color: BRAND.grayLight, lineHeight: 1.5 }}>
+            Every interaction compounds. The more it schedules, the better it gets at matching players, predicting availability, and filling cancellations.
+          </div>
+        </div>
+
+        {/* Data Sources */}
+        <div style={{ background: BRAND.darkCard, borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", overflow: "hidden" }}>
+          <div style={{ padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: BRAND.gray, textTransform: "uppercase", letterSpacing: "0.08em" }}>📡 Data Sources (NEPC — Live)</span>
+          </div>
+          {DATA_SOURCES.map((src, i) => (
+            <div key={i} style={{
+              padding: "6px 12px", display: "flex", alignItems: "center", gap: 8,
+              borderBottom: i < DATA_SOURCES.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
+              animation: `fadeIn ${0.3 + i * 0.1}s ease-out`,
+            }}>
+              <span style={{ fontSize: 14, flexShrink: 0 }}>{src.icon}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 10.5, fontWeight: 600, color: BRAND.white }}>{src.name}</span>
+                  <span style={{ fontSize: 9, color: BRAND.cyan, fontWeight: 700 }}>{src.count}</span>
+                </div>
+                <div style={{ fontSize: 8.5, color: BRAND.grayDark, marginTop: 1 }}>{src.detail}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Live Social Graph Growth — Canvas */}
+        <div style={{ background: BRAND.darkCard, borderRadius: 10, border: `1px solid ${BRAND.cyan}22`, overflow: "hidden" }}>
+          <div style={{ padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: BRAND.gray, textTransform: "uppercase", letterSpacing: "0.08em" }}>🕸️ Social Graph — Growing in Real Time</span>
+          </div>
+          <div style={{ padding: 4 }}>
+            <canvas ref={canvasRef} width={370} height={180} style={{ width: "100%", height: 180, borderRadius: 6 }} />
+          </div>
+          <div style={{ padding: "6px 12px 10px", textAlign: "center" }}>
+            <div style={{ fontSize: 9, color: BRAND.grayDark }}>Every text, RSVP, and check-in adds a signal. The graph never stops growing.</div>
+          </div>
+        </div>
+
+        {/* The Flywheel */}
+        <div style={{ background: BRAND.darkCard, borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", padding: "10px 14px" }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: BRAND.gray, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+            🔄 Data Compounds — Every Cycle Gets Smarter
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            {[
+              { label: "Schedule", sub: "via text", color: BRAND.blue, icon: "📱" },
+              { label: "Capture", sub: "signals", color: BRAND.cyan, icon: "📡" },
+              { label: "Learn", sub: "preferences", color: BRAND.teal, icon: "🧠" },
+              { label: "Match", sub: "better", color: "#7C3AED", icon: "🎯" },
+              { label: "Retain", sub: "players", color: BRAND.greenConfirm, icon: "📈" },
+            ].map((step, i) => (
+              <Fragment key={i}>
+                <div style={{ textAlign: "center", flex: 1 }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: "50%",
+                    background: `${step.color}22`, border: `2px solid ${step.color}66`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    margin: "0 auto", fontSize: 12,
+                  }}>
+                    {step.icon}
+                  </div>
+                  <div style={{ fontSize: 8, color: step.color, fontWeight: 700, marginTop: 3, lineHeight: 1.1 }}>{step.label}</div>
+                  <div style={{ fontSize: 7, color: BRAND.grayDark, marginTop: 1 }}>{step.sub}</div>
+                </div>
+                {i < 4 && <div style={{ color: BRAND.grayDark, fontSize: 9, fontWeight: 700, flexShrink: 0 }}>→</div>}
+              </Fragment>
+            ))}
+          </div>
+          <div style={{ textAlign: "center", marginTop: 6 }}>
+            <div style={{ fontSize: 9, color: BRAND.cyan, fontWeight: 600 }}>↻ Cycle 1: good. Cycle 100: unbeatable.</div>
+          </div>
+        </div>
+      </div>
+    </Fragment>
+  );
+}
+
+// ─── Main App ───
+function GnTDemo() {
+  const [activeDemo, setActiveDemo] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(0);
+  const [showTyping, setShowTyping] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [completedDemos, setCompletedDemos] = useState(new Set());
+  const [showGraph, setShowGraph] = useState(false);
+  const [showIntelligence, setShowIntelligence] = useState(false);
+  const [graphRevealStage, setGraphRevealStage] = useState(0);
+  const [graphFullReveal, setGraphFullReveal] = useState(false);
+  const [liveSignals, setLiveSignals] = useState([]);
+  const [liveSignalCount, setLiveSignalCount] = useState(0);
+  const [completedSignals, setCompletedSignals] = useState(0);
+
+  const timeoutsRef = useRef([]);
+  const pausedAtRef = useRef(0);
+
+  const clearTimeouts = () => {
+    timeoutsRef.current.forEach(clearTimeout);
+    timeoutsRef.current = [];
+  };
+
+  const currentDemo = DEMOS[activeDemo];
+  const isGraphView = showGraph;
+  const isIntelligenceView = showIntelligence;
+
+  const scheduleMessages = useCallback((msgs, fromIndex, baseDelay) => {
+    clearTimeouts();
+    const offsetDelay = fromIndex > 1 ? msgs[fromIndex - 1].delay || 0 : 0;
+
+    for (let i = fromIndex; i < msgs.length; i++) {
+      const msg = msgs[i];
+      if (i === 0) continue;
+      const isGnT = msg.sender === "gnt";
+      const adjustedDelay = (msg.delay - offsetDelay) + baseDelay;
+
+      if (isGnT) {
+        const t1 = setTimeout(() => setShowTyping(true), Math.max(adjustedDelay - 500, 0));
+        timeoutsRef.current.push(t1);
+      }
+
+      const capturedSignals = msg.signals || [];
+      const t2 = setTimeout(() => {
+        setShowTyping(false);
+        setVisibleCount(i + 1);
+        pausedAtRef.current = i + 1;
+
+        if (capturedSignals.length > 0) {
+          setLiveSignals((prev) => [...prev, ...capturedSignals]);
+          setLiveSignalCount((prev) => prev + capturedSignals.length);
+        }
+
+        if (i === msgs.length - 1) {
+          setTimeout(() => {
+            setIsPlaying(false);
+            setIsPaused(false);
+            setCompletedDemos((prev) => new Set([...prev, activeDemo]));
+            setLiveSignalCount((curr) => {
+              setCompletedSignals((prevCompleted) => prevCompleted + curr);
+              return curr;
+            });
+            setGraphRevealStage(activeDemo + 1);
+          }, 400);
+        }
+      }, adjustedDelay);
+      timeoutsRef.current.push(t2);
+    }
+  }, [activeDemo]);
+
+  const playDemo = useCallback(() => {
+    if (isPlaying && !isPaused) return;
+    const msgs = currentDemo.messages;
+
+    if (isPaused) {
+      setIsPaused(false);
+      setIsPlaying(true);
+      scheduleMessages(msgs, pausedAtRef.current, 300);
+    } else {
+      setLiveSignals([]);
+      setLiveSignalCount(0);
+      setVisibleCount(1);
+      setShowTyping(false);
+      setIsPlaying(true);
+      setIsPaused(false);
+      pausedAtRef.current = 1;
+      scheduleMessages(msgs, 1, 0);
+    }
+  }, [activeDemo, currentDemo, isPlaying, isPaused, scheduleMessages]);
+
+  const pauseDemo = useCallback(() => {
+    clearTimeouts();
+    setShowTyping(false);
+    setIsPlaying(false);
+    setIsPaused(true);
+  }, []);
+
+  const switchDemo = (index) => {
+    if (index === activeDemo && !isPlaying) return;
+    clearTimeouts();
+    setVisibleCount(1);
+    setShowTyping(false);
+    setIsPlaying(false);
+    setIsPaused(false);
+    setLiveSignals([]);
+    setLiveSignalCount(0);
+    pausedAtRef.current = 0;
+    setActiveDemo(index);
+    setShowGraph(false);
+    setShowIntelligence(false);
+  };
+
+  const showGraphView = () => {
+    if (isPlaying) return;
+    setShowGraph(true);
+    setShowIntelligence(false);
+    if (!graphFullReveal) {
+      setGraphFullReveal(true);
+      setTimeout(() => setGraphRevealStage(DEMOS.length + 1), 600);
+    }
+  };
+
+  const showIntelligenceView = () => {
+    if (isPlaying) return;
+    setShowIntelligence(true);
+    setShowGraph(false);
+  };
+
+  useEffect(() => () => clearTimeouts(), []);
+
+  const allDemosComplete = completedDemos.size === DEMOS.length;
+  const displayTotal = completedSignals + liveSignalCount;
+
+  // Group demos by category for the tab bar
+  const groupDemos = DEMOS.map((d, i) => ({ ...d, index: i })).filter((d) => d.category === "group");
+  const dmDemos = DEMOS.map((d, i) => ({ ...d, index: i })).filter((d) => d.category === "dm");
+  const coordDemos = DEMOS.map((d, i) => ({ ...d, index: i })).filter((d) => d.category === "coordinator");
+
+  const renderDemoTab = (demo) => {
+    const isActive = !isGraphView && !isIntelligenceView && activeDemo === demo.index;
+    const isComplete = completedDemos.has(demo.index);
+    return (
+      <button key={demo.id} onClick={() => switchDemo(demo.index)} style={{
+        background: isActive ? `linear-gradient(135deg, ${BRAND.navy}, ${BRAND.blue})` : isComplete ? BRAND.darkCard : "rgba(255,255,255,0.04)",
+        color: isActive ? "#fff" : isComplete ? BRAND.cyan : BRAND.gray,
+        border: isActive ? `1px solid ${BRAND.cyan}` : isComplete ? `1px solid ${BRAND.cyan}44` : "1px solid rgba(255,255,255,0.08)",
+        borderRadius: 8, padding: "5px 10px", fontSize: 10, fontWeight: isActive ? 700 : 500,
+        cursor: "pointer", transition: "all 0.2s",
+        display: "flex", alignItems: "center", gap: 3,
+      }}>
+        <span>{demo.icon}</span><span>{demo.shortLabel}</span>
+        {isComplete && <span style={{ fontSize: 8 }}>✓</span>}
+      </button>
+    );
+  };
+
+  return (
+    <div style={{
+      minHeight: "100vh",
+      background: `linear-gradient(160deg, ${BRAND.dark} 0%, #0D1520 50%, ${BRAND.navy}22 100%)`,
+      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif',
+      display: "flex", flexDirection: "column", alignItems: "center", padding: "24px 16px", overflowX: "hidden",
+    }}>
+      <style>{`
+        @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-3px)} }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes pulseGlow { 0%,100%{box-shadow:0 0 12px rgba(0,163,224,0.3)} 50%{box-shadow:0 0 24px rgba(0,163,224,0.6)} }
+        @keyframes slideIn { from{opacity:0;transform:translateX(-10px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes signalSlideIn { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
+      `}</style>
+
+      {/* Unified Header — Brand + Demo as one block */}
+      <div style={{ textAlign: "center", marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 4 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 8,
+            background: `linear-gradient(135deg, ${BRAND.navy}, ${BRAND.blue})`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            border: `2px solid ${BRAND.cyan}`, boxShadow: `0 0 16px ${BRAND.cyan}33`,
+          }}>
+            <span style={{ color: "#fff", fontSize: 11, fontWeight: 800, letterSpacing: "-0.02em" }}>GnT</span>
+          </div>
+          <span style={{ fontSize: 24, fontWeight: 800, color: BRAND.white, letterSpacing: "-0.03em" }}>
+            Give <span style={{ color: BRAND.cyan }}>'n</span> Take
+          </span>
+        </div>
+        {/* Demo title flows directly from brand */}
+        {isIntelligenceView ? (
+          <div style={{ animation: "fadeIn 0.4s ease-out", marginTop: 6 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: BRAND.white, lineHeight: 1.4 }}>
+              Six data sources. One text message.<br />
+              <span style={{ color: BRAND.cyan }}>The intelligence that powers every session.</span>
+            </div>
+          </div>
+        ) : isGraphView ? (
+          <div style={{ animation: "fadeIn 0.4s ease-out", marginTop: 6 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: BRAND.white, lineHeight: 1.4 }}>
+              Players see scheduling.<br />
+              <span style={{ color: BRAND.cyan }}>GnT sees the social graph building underneath.</span>
+            </div>
+          </div>
+        ) : (
+          <div style={{ animation: "fadeIn 0.3s ease-out", marginTop: 6 }} key={activeDemo}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: BRAND.white }}>{currentDemo.icon} {currentDemo.label}</div>
+            <div style={{ fontSize: 12, color: BRAND.gray, marginTop: 2 }}>{currentDemo.subtitle}</div>
+          </div>
+        )}
+        <div style={{ fontSize: 11, color: BRAND.grayDark, fontWeight: 400, marginTop: 6 }}>
+          No app. No login. Just text.
+        </div>
+        <div style={{ fontSize: 9, color: "#E53E3E", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 8, opacity: 0.85 }}>
+          Confidential — Do Not Share
+        </div>
+      </div>
+
+      {/* Demo Tabs — compact, below the unified header */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 12, alignItems: "center", width: "100%", maxWidth: 700 }}>
+        {/* Group demos row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
+          <span style={{ fontSize: 9, fontWeight: 700, color: BRAND.grayDark, textTransform: "uppercase", letterSpacing: "0.08em", marginRight: 2 }}>👥 Four Friends</span>
+          {groupDemos.map(renderDemoTab)}
+        </div>
+        {/* DM demos row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
+          <span style={{ fontSize: 9, fontWeight: 700, color: BRAND.grayDark, textTransform: "uppercase", letterSpacing: "0.08em", marginRight: 2 }}>💬 1-on-1</span>
+          {dmDemos.map(renderDemoTab)}
+        </div>
+        {/* Large Group row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
+          <span style={{ fontSize: 9, fontWeight: 700, color: BRAND.grayDark, textTransform: "uppercase", letterSpacing: "0.08em", marginRight: 2 }}>👥 LARGE-GROUP</span>
+          {coordDemos.map(renderDemoTab)}
+        </div>
+        {/* Intelligence + Graph — separate section */}
+        <div style={{ marginTop: 3, paddingTop: 6, borderTop: `1px solid ${BRAND.cyan}22`, display: "flex", justifyContent: "center", gap: 8 }}>
+          <button onClick={showIntelligenceView} style={{
+            background: isIntelligenceView ? `linear-gradient(135deg, ${BRAND.navy}, ${BRAND.teal})` : "rgba(255,255,255,0.04)",
+            color: isIntelligenceView ? "#fff" : BRAND.gray,
+            border: isIntelligenceView ? `1px solid ${BRAND.teal}` : "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 10, padding: "8px 20px", fontSize: 11, fontWeight: 700,
+            cursor: "pointer", transition: "all 0.2s",
+            display: "flex", alignItems: "center", gap: 5,
+            letterSpacing: "0.04em",
+          }}>
+            <span>🧠</span><span>INTELLIGENCE</span>
+          </button>
+          <button onClick={showGraphView} style={{
+            background: isGraphView ? `linear-gradient(135deg, ${BRAND.burgundy}, ${BRAND.burgundyLight})` : allDemosComplete ? `linear-gradient(135deg, ${BRAND.navy}, ${BRAND.burgundy})` : "rgba(255,255,255,0.02)",
+            color: isGraphView ? "#fff" : allDemosComplete ? "#fff" : BRAND.grayDark,
+            border: isGraphView ? `1px solid ${BRAND.burgundyLight}` : allDemosComplete ? `1px solid ${BRAND.burgundy}88` : "1px solid rgba(255,255,255,0.06)",
+            borderRadius: 10, padding: "8px 20px", fontSize: 11, fontWeight: 700,
+            cursor: "pointer", transition: "all 0.2s",
+            animation: allDemosComplete && !isGraphView ? "pulseGlow 2s ease-in-out infinite" : "none",
+            display: "flex", alignItems: "center", gap: 5,
+            letterSpacing: "0.04em",
+          }}>
+            <span>🕸️</span><span>GIVE 'N TAKE GRAPH</span>
+            {allDemosComplete && !isGraphView && <span style={{ fontSize: 9, opacity: 0.8 }}>← UNLOCKED</span>}
+          </button>
+        </div>
+      </div>
+
+      {/* Phone + Sidebar */}
+      <div style={{ display: "flex", gap: 20, alignItems: "flex-start", justifyContent: "center", flexWrap: "wrap" }}>
+        {isIntelligenceView && (
+          <IntelligencePipeline key="intelligence" />
+        )}
+        {!isGraphView && !isIntelligenceView && (
+          <div style={{ animation: "fadeIn 0.3s ease-out" }}>
+            <PhoneScreen demo={currentDemo} visibleCount={visibleCount} showTyping={showTyping} />
+          </div>
+        )}
+
+        {isGraphView && (
+          <div style={{ animation: "fadeIn 0.5s ease-out" }}>
+            <GraphVisualization revealStage={graphRevealStage} totalSignals={displayTotal} />
+          </div>
+        )}
+
+        {/* Right sidebar: Live Signal Feed */}
+        {!isGraphView && !isIntelligenceView && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, animation: "slideIn 0.3s ease-out" }}>
+            <SignalFeed signals={liveSignals} signalCount={displayTotal} />
+
+            {/* Mini graph preview */}
+            <div style={{
+              background: BRAND.darkCard, borderRadius: 12, padding: 12, width: 260,
+              border: `1px solid ${graphRevealStage > 0 ? BRAND.cyan + "22" : "rgba(255,255,255,0.06)"}`,
+              cursor: "pointer", transition: "all 0.3s",
+            }} onClick={showGraphView}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: BRAND.gray, textTransform: "uppercase", letterSpacing: "0.08em" }}>The Graph</div>
+                  <div style={{ fontSize: 11, color: graphRevealStage > 0 ? BRAND.cyan : BRAND.grayDark, fontWeight: 600, marginTop: 2 }}>
+                    {graphRevealStage > 0 ? `${displayTotal} signals captured` : "Play demos to reveal"}
+                  </div>
+                </div>
+                <div style={{ fontSize: 20 }}>🕸️</div>
+              </div>
+              {allDemosComplete && !isGraphView && (
+                <div style={{ marginTop: 8, padding: "5px 0", textAlign: "center", fontSize: 10, fontWeight: 700, color: BRAND.burgundyLight, animation: "pulseGlow 2s ease-in-out infinite", borderRadius: 6 }}>
+                  ← See the full graph
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Graph view: Community Manager Dashboard */}
+        {isGraphView && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 340, maxWidth: 380, animation: "slideIn 0.4s ease-out" }}>
+            {/* THE AHA — Hero revelation */}
+            <div style={{
+              background: `linear-gradient(135deg, ${BRAND.navy}ee, ${BRAND.burgundy}44)`,
+              border: `1px solid ${BRAND.cyan}33`,
+              borderRadius: 12, padding: "14px 16px",
+              position: "relative", overflow: "hidden",
+            }}>
+              <div style={{ position: "absolute", top: -20, right: -20, width: 100, height: 100, borderRadius: "50%", background: `${BRAND.cyan}08` }} />
+              <div style={{ fontSize: 9, fontWeight: 700, color: BRAND.cyan, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 }}>
+                🔒 What GnT Sees Underneath
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: BRAND.white, lineHeight: 1.35, marginBottom: 4 }}>
+                The invisible social data is no longer invisible.
+              </div>
+              <div style={{ fontSize: 10.5, color: BRAND.grayLight, lineHeight: 1.5 }}>
+                Every text, every RSVP, every "I'm in" — GnT quietly maps who connects with whom, why, how reliably, and how well.
+              </div>
+            </div>
+
+            {/* Messaging KPIs — the Trojan horse metrics */}
+            <div style={{ background: BRAND.darkCard, borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", overflow: "hidden" }}>
+              <div style={{ padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <span style={{ fontSize: 9, fontWeight: 700, color: BRAND.gray, textTransform: "uppercase", letterSpacing: "0.08em" }}>📊 Weekly KPIs</span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1, background: "rgba(255,255,255,0.03)" }}>
+                {[
+                  { value: "42", label: "Foursomes", color: BRAND.cyan },
+                  { value: "3", label: "New Large\nGroups", color: BRAND.teal },
+                  { value: "312", label: "Active\nPlayers", color: BRAND.greenConfirm },
+                ].map((kpi, i) => (
+                  <div key={i} style={{ padding: "10px 8px", textAlign: "center", background: BRAND.darkCard }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: kpi.color, lineHeight: 1 }}>{kpi.value}</div>
+                    <div style={{ fontSize: 8, color: BRAND.grayDark, marginTop: 4, lineHeight: 1.3, whiteSpace: "pre-line" }}>{kpi.label}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1, background: "rgba(255,255,255,0.03)" }}>
+                {[
+                  { value: "1,842", label: "Social\nSignals", color: BRAND.cyan },
+                  { value: "1,005", label: "Scheduling\nSignals", color: BRAND.teal },
+                  { value: "94%", label: "Fill Rate\n(was 71%)", color: BRAND.greenConfirm },
+                ].map((kpi, i) => (
+                  <div key={i} style={{ padding: "10px 8px", textAlign: "center", background: BRAND.darkCard }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: kpi.color, lineHeight: 1 }}>{kpi.value}</div>
+                    <div style={{ fontSize: 8, color: BRAND.grayDark, marginTop: 4, lineHeight: 1.3, whiteSpace: "pre-line" }}>{kpi.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Customer Segmentation — network effect drivers */}
+            <div style={{ background: BRAND.darkCard, borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", overflow: "hidden" }}>
+              <div style={{ padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <span style={{ fontSize: 9, fontWeight: 700, color: BRAND.gray, textTransform: "uppercase", letterSpacing: "0.08em" }}>🧬 Player Segments (312 players)</span>
+              </div>
+              {[
+                { segment: "Social Majority", count: 134, goal: 180, role: "Retention engine", color: BRAND.blue },
+                { segment: "Competitive Grinders", count: 47, goal: 60, role: "Signal quality", color: BRAND.burgundyLight },
+                { segment: "Connectors", count: 31, goal: 50, role: "Network density", color: BRAND.cyan },
+                { segment: "Reliable Subs", count: 38, goal: 60, role: "Fill elasticity", color: BRAND.greenConfirm },
+                { segment: "Beginners", count: 34, goal: 45, role: "Growth pipeline", color: BRAND.teal },
+                { segment: "Others", count: 28, goal: null, role: "Ambient + Price-sensitive", color: BRAND.grayDark },
+              ].map((seg, i) => (
+                <div key={i} style={{
+                  padding: "6px 12px", display: "flex", alignItems: "center", gap: 8,
+                  borderBottom: i < 5 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                }}>
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: seg.color, flexShrink: 0 }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: 10.5, fontWeight: 600, color: BRAND.white }}>{seg.segment}</span>
+                      <span style={{ fontSize: 9, color: BRAND.grayDark }}>{seg.count}{seg.goal ? ` / ${seg.goal}` : ""}</span>
+                    </div>
+                    <div style={{ marginTop: 3, height: 3, borderRadius: 2, background: "rgba(255,255,255,0.06)", overflow: "hidden", position: "relative" }}>
+                      <div style={{ width: seg.goal ? `${Math.round((seg.count / seg.goal) * 100)}%` : "100%", height: "100%", borderRadius: 2, background: seg.color, transition: "width 1s ease-out" }} />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 2 }}>
+                      <span style={{ fontSize: 8, color: seg.color, fontWeight: 600 }}>{seg.role}</span>
+                      {seg.goal && <span style={{ fontSize: 8, color: seg.count >= seg.goal ? BRAND.greenConfirm : BRAND.grayDark }}>{Math.round((seg.count / seg.goal) * 100)}% of goal</span>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Actionable Insights — CLEAR insight + CLEAR action */}
+            <div style={{ background: BRAND.darkCard, borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", overflow: "hidden" }}>
+              <div style={{ padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <span style={{ fontSize: 9, fontWeight: 700, color: BRAND.gray, textTransform: "uppercase", letterSpacing: "0.08em" }}>🧠 GnT Sees → GnT Acts</span>
+              </div>
+              {[
+                { insight: "Rick's group has 3 players who also play in Sarah's group", action: "Bridge groups → create Thursday mega-session", actionLabel: "Create", icon: "🔗", color: BRAND.cyan },
+                { insight: "Jay (referred by Dave) has 87% compatibility with Ben's Tuesday crew", action: "Auto-invite Jay to next Tuesday session", actionLabel: "Invite", icon: "🎯", color: BRAND.greenConfirm },
+                { insight: "Court 4 Thursdays 6pm has 68% utilization — 4 players on waitlist", action: "Open extra court, notify waitlisted players", actionLabel: "Expand", icon: "📈", color: BRAND.teal },
+                { insight: "Marcus hasn't played in 11 days — usually plays 2x/week", action: "Send nudge to his preferred group", actionLabel: "Nudge", icon: "👋", color: "#F59E0B" },
+              ].map((item, i) => (
+                <div key={i} style={{
+                  padding: "8px 12px",
+                  borderBottom: i < 3 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 4 }}>
+                    <span style={{ fontSize: 11, flexShrink: 0 }}>{item.icon}</span>
+                    <div style={{ fontSize: 10, color: BRAND.grayLight, lineHeight: 1.4, fontWeight: 500 }}>
+                      <span style={{ color: BRAND.white, fontWeight: 700 }}>Sees: </span>{item.insight}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginLeft: 17 }}>
+                    <div style={{ fontSize: 9.5, color: item.color, fontWeight: 600 }}>
+                      → {item.action}
+                    </div>
+                    <button style={{
+                      background: `${item.color}22`, color: item.color,
+                      border: `1px solid ${item.color}44`, borderRadius: 6,
+                      padding: "2px 8px", fontSize: 9, fontWeight: 700, cursor: "pointer",
+                      flexShrink: 0,
+                    }}>{item.actionLabel}</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* The Revenue Impact — investor closer */}
+            <div style={{
+              background: `linear-gradient(135deg, ${BRAND.navy}, ${BRAND.darkCard})`,
+              borderRadius: 10, border: `1px solid ${BRAND.greenConfirm}22`, padding: "10px 14px",
+            }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: BRAND.greenConfirm, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+                💰 Revenue Impact — This Club
+              </div>
+              <div style={{ display: "flex", gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 9, color: BRAND.grayDark }}>Utilization</div>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginTop: 2 }}>
+                    <span style={{ fontSize: 13, color: BRAND.grayDark, textDecoration: "line-through" }}>56%</span>
+                    <span style={{ fontSize: 10, color: BRAND.grayDark }}>→</span>
+                    <span style={{ fontSize: 13, color: "#F59E0B" }}>64%</span>
+                    <span style={{ fontSize: 10, color: BRAND.grayDark }}>→</span>
+                    <span style={{ fontSize: 16, fontWeight: 800, color: BRAND.greenConfirm }}>85%</span>
+                  </div>
+                </div>
+                <div style={{ borderLeft: "1px solid rgba(255,255,255,0.08)", paddingLeft: 12 }}>
+                  <div style={{ fontSize: 9, color: BRAND.grayDark }}>Annual Boost</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: BRAND.greenConfirm, lineHeight: 1.2, marginTop: 2 }}>+$250K</div>
+                  <div style={{ fontSize: 8, color: BRAND.grayDark }}>per club</div>
+                </div>
+              </div>
+            </div>
+
+            {/* The Flywheel — manual → autonomous → community graph */}
+            <div style={{ background: BRAND.darkCard, borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", padding: "10px 14px" }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: BRAND.gray, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                🔄 The Compounding Flywheel
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {[
+                  { label: "Text\nScheduling", color: BRAND.blue, icon: "📱" },
+                  { label: "Signal\nCapture", color: BRAND.cyan, icon: "📡" },
+                  { label: "Better\nMatches", color: BRAND.teal, icon: "🎯" },
+                  { label: "More\nPlay", color: BRAND.greenConfirm, icon: "📈" },
+                ].map((step, i) => (
+                  <Fragment key={i}>
+                    <div style={{ textAlign: "center", flex: 1 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: "50%", background: `${step.color}22`, border: `2px solid ${step.color}66`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto", fontSize: 14 }}>
+                        {step.icon}
+                      </div>
+                      <div style={{ fontSize: 8, color: step.color, fontWeight: 700, marginTop: 4, lineHeight: 1.2, whiteSpace: "pre-line" }}>{step.label}</div>
+                    </div>
+                    {i < 3 && <div style={{ color: BRAND.grayDark, fontSize: 10, fontWeight: 700, flexShrink: 0 }}>→</div>}
+                  </Fragment>
+                ))}
+              </div>
+              <div style={{ textAlign: "center", marginTop: 6 }}>
+                <div style={{ fontSize: 8, color: BRAND.grayDark }}>↻ Each cycle makes the next one smarter</div>
+              </div>
+            </div>
+
+            <button onClick={() => { setShowGraph(false); setShowIntelligence(false); setActiveDemo(0); }} style={{
+              background: "rgba(255,255,255,0.04)", color: BRAND.gray, border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: 8, padding: "8px 14px", fontSize: 11, cursor: "pointer", textAlign: "center",
+            }}>
+              ← Back to demos
+            </button>
+          </div>
+        )}
+
+      </div>
+
+      {/* Play / Pause Button */}
+      {!isGraphView && !isIntelligenceView && (
+        <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+          {isPlaying ? (
+            <button onClick={pauseDemo} style={{
+              background: `linear-gradient(135deg, ${BRAND.burgundy}, ${BRAND.burgundyLight})`,
+              color: "#fff", border: `1px solid ${BRAND.burgundyLight}66`, borderRadius: 10,
+              padding: "10px 28px", fontSize: 13, fontWeight: 700, cursor: "pointer",
+              boxShadow: `0 4px 16px ${BRAND.burgundy}66`, transition: "all 0.2s",
+            }}>⏸ Pause</button>
+          ) : (
+            <button onClick={playDemo} style={{
+              background: `linear-gradient(135deg, ${BRAND.teal}, ${BRAND.greenConfirm})`,
+              color: "#fff", border: `1px solid ${BRAND.greenConfirm}66`, borderRadius: 10,
+              padding: "10px 28px", fontSize: 13, fontWeight: 700, cursor: "pointer",
+              boxShadow: `0 4px 16px ${BRAND.teal}88`, transition: "all 0.2s",
+            }}>
+              {isPaused ? "▶ Resume" : completedDemos.has(activeDemo) ? "↻ Replay" : "▶ Play"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Bottom Tagline */}
+      <div style={{ marginTop: 20, textAlign: "center", maxWidth: 440 }}>
+        <div style={{ fontSize: 12, color: BRAND.grayLight, lineHeight: 1.5 }}>
+          {isIntelligenceView ? (
+            <span>
+              <span style={{ color: BRAND.white }}>Other platforms match on one number.</span>
+              <br />
+              <span style={{ color: BRAND.cyan, fontWeight: 700 }}>
+                GnT matches on the full picture — skill, chemistry, reliability, and timing.
+              </span>
+            </span>
+          ) : isGraphView ? (
+            <span>
+              <span style={{ color: BRAND.white }}>Social media built the Social Graph to optimize attention.</span>
+              <br />
+              <span style={{ color: BRAND.cyan, fontWeight: 700 }}>
+                Give 'n Take builds the Give 'n Take Graph to optimize who you play with in real life.
+              </span>
+            </span>
+          ) : (
+            <span>
+              Play all demos to unlock <span style={{ color: BRAND.cyan, fontWeight: 700 }}>The Give 'n Take Graph</span> — the real intelligence underneath.
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+ReactDOM.render(React.createElement(GnTDemo), document.getElementById('root'));
+</script>
+</body>
+</html>
